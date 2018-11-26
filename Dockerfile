@@ -14,6 +14,30 @@ RUN go build
 
 FROM docker.io/kubevirt/virt-launcher:v0.10.0 AS upstream
 
+FROM fedora:28 AS qemu-build
+
+RUN dnf install -y wget make automake gcc libtool libdrm-devel libgbm-devel libepoxy-devel python3
+#&& dnf clean all
+
+
+# Compile virglrenderer
+RUN cd ~ \
+&& wget https://github.com/freedesktop/virglrenderer/archive/virglrenderer-0.7.0.tar.gz \
+&& tar xvzf virglrenderer-0.7.0.tar.gz \
+&& mv virglrenderer-virglrenderer-0.7.0/ virglrenderer-0.7.0/ \
+&& cd virglrenderer-0.7.0 \
+&& ./autogen.sh --prefix=/usr \
+&& make -j$(nproc) \
+&& make install
+
+RUN cd ~ \
+&& wget https://download.qemu.org/qemu-3.0.0.tar.xz \
+&& tar xvJf qemu-3.0.0.tar.xz \
+&& cd qemu-3.0.0 \
+&& ./configure --enable-virglrenderer --enable-vnc --enable-spice --target-list="x86_64-softmmu" --disable-sdl --disable-gtk --prefix=/usr \
+&& make -j$(nproc) \
+&& make install
+
 FROM 9b33dab9e7d75ecbbbb4c599dd9c0e1ab9f6f126fe605989bc86d8a7e80de9fc
 
 ARG LIBVIRT_VERSION=4.9.0
