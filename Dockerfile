@@ -25,7 +25,6 @@ RUN dnf install -y \
  libdrm-devel \
  libgbm-devel \
  libepoxy-devel \
-# python3 \
  git \
  mesa-libEGL-devel \
  xz \
@@ -33,24 +32,40 @@ RUN dnf install -y \
  zlib-devel \
  glib2-devel \
  pixman-devel \
- spice-server-devel
+ spice-server-devel \
+ patch
+
+WORKDIR /src
+
+# Get the sources
+RUN cd /src \
+&& git clone -b virglrenderer-0.7.0 https://github.com/freedesktop/virglrenderer \
+&& wget https://download.qemu.org/qemu-3.0.0.tar.xz \
+&& tar xvJf qemu-3.0.0.tar.xz \
+&& rm qemu-3.0.0.tar.xz
 
 # Compile virglrenderer
-RUN cd ~ \
-&& git clone -b virglrenderer-0.7.0 https://github.com/freedesktop/virglrenderer \
+RUN cd /src \
 && cd virglrenderer \
 && ./autogen.sh --prefix=/usr --disable-glx \
 && make -j$(nproc) \
-&& make install
+&& make install \
+&& DESTDIR=/target/ make install \
+&& cd /src
 
+RUN ls -l /target/usr/
+RUN ls -l /target/usr/lib64/
 
-RUN cd ~ \
-&& wget https://download.qemu.org/qemu-3.0.0.tar.xz \
-&& tar xvJf qemu-3.0.0.tar.xz \
+# Apply the qemu patch, and compile qemu
+COPY qemu.patch .
+RUN cd /src \
 && cd qemu-3.0.0 \
+&& patch -p1 < ../qemu.patch \
 && ./configure --enable-virglrenderer --enable-vnc --enable-spice --target-list="x86_64-softmmu" --disable-sdl --disable-gtk --prefix=/usr \
 && make -j$(nproc) \
-&& make install
+&& make install \
+&& DESTDIR=/target/ make install \
+&& cd /src
 
 FROM 9b33dab9e7d75ecbbbb4c599dd9c0e1ab9f6f126fe605989bc86d8a7e80de9fc
 
@@ -70,3 +85,4 @@ RUN dnf install -y dnf-plugins-core \
 
 COPY --from=upstream /usr/bin/virt-launcher /usr/bin/upstream-virt-launcher
 COPY --from=launcher-build /go/src/virt-launcher/virt-launcher /usr/bin/
+COPY --from=qemu-build /target/usr /usr
