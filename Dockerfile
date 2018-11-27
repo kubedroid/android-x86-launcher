@@ -33,13 +33,15 @@ RUN dnf install -y \
  glib2-devel \
  pixman-devel \
  spice-server-devel \
- patch
+ patch \
+ flex \
+ bison
 
 WORKDIR /src
 
 # Get the sources
 RUN cd /src \
-&& git clone -b virglrenderer-0.7.0 https://github.com/freedesktop/virglrenderer \
+&& git clone -b master https://github.com/freedesktop/virglrenderer \
 && wget https://download.qemu.org/qemu-3.0.0.tar.xz \
 && tar xvJf qemu-3.0.0.tar.xz \
 && rm qemu-3.0.0.tar.xz
@@ -52,9 +54,6 @@ RUN cd /src \
 && make install \
 && DESTDIR=/target/ make install \
 && cd /src
-
-RUN ls -l /target/usr/
-RUN ls -l /target/usr/lib64/
 
 # Apply the qemu patch, and compile qemu
 COPY qemu.patch .
