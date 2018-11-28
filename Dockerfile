@@ -7,6 +7,13 @@
 # so that we can hardware-accelerate Android-x86
 FROM golang:1.11 AS launcher-build
 
+ARG QEMU_SOURCE_VERSION=3.0.0
+ARG VIRGL_SOURCE_BRANCH=master
+
+ARG LIBVIRT_PACKAGE_VERSION=4.9.0
+ARG QEMU_PACKAGE_VERSION=3.0.0
+ARG LIBUSB_PACKAGE_VERSION=1.0.22
+
 WORKDIR /go/src/virt-launcher
 
 COPY *.go .
@@ -41,10 +48,10 @@ WORKDIR /src
 
 # Get the sources
 RUN cd /src \
-&& git clone -b master https://github.com/freedesktop/virglrenderer \
-&& wget https://download.qemu.org/qemu-3.0.0.tar.xz \
-&& tar xvJf qemu-3.0.0.tar.xz \
-&& rm qemu-3.0.0.tar.xz
+&& git clone -b ${VIRGL_SOURCE_BRANCH} https://github.com/freedesktop/virglrenderer \
+&& wget https://download.qemu.org/qemu-${QEMU_SOURCE_VERSION}.tar.xz \
+&& tar xvJf qemu-${QEMU_SOURCE_VERSION}.tar.xz \
+&& rm qemu-${QEMU_SOURCE_VERSION}.tar.xz
 
 # Compile virglrenderer
 RUN cd /src \
@@ -58,7 +65,7 @@ RUN cd /src \
 # Apply the qemu patch, and compile qemu
 COPY qemu.patch .
 RUN cd /src \
-&& cd qemu-3.0.0 \
+&& cd qemu-${QEMU_SOURCE_VERSION} \
 && patch -p1 < ../qemu.patch \
 && ./configure --enable-virglrenderer --enable-vnc --enable-spice --target-list="x86_64-softmmu" --disable-sdl --disable-gtk --prefix=/usr \
 && make -j$(nproc) \
@@ -68,18 +75,14 @@ RUN cd /src \
 
 FROM 9b33dab9e7d75ecbbbb4c599dd9c0e1ab9f6f126fe605989bc86d8a7e80de9fc
 
-ARG LIBVIRT_VERSION=4.9.0
-ARG QEMU_VERSION=3.0.0
-ARG LIBUSB_VERSION=1.0.22
-
 RUN dnf install -y dnf-plugins-core \
 && dnf copr enable -y @virtmaint-sig/virt-preview \
 && dnf install -y \
-     libvirt-daemon-kvm-$LIBVIRT_VERSION \
-     libvirt-client-$LIBVIRT_VERSION \
-     qemu-kvm-$QEMU_VERSION \
-     libusbx-$LIBUSB_VERSION \
-      mesa-dri-drivers \
+     libvirt-daemon-kvm-$LIBVIRT_PACKAGE_VERSION \
+     libvirt-client-$LIBVIRT_PACKAGE_VERSION \
+     qemu-kvm-$QEMU_PACKAGE_VERSION \
+     libusbx-$LIBUSB_PACKGE_VERSION \
+     mesa-dri-drivers \
 && dnf clean all
 
 COPY --from=upstream /usr/bin/virt-launcher /usr/bin/upstream-virt-launcher
