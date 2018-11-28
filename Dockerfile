@@ -37,7 +37,7 @@ RUN dnf install -y \
  flex \
  bison
 
-ARG QEMU_SOURCE_VERSION=3.1.0-rc2
+ARG QEMU_SOURCE_VERSION=3.1.0-rc1
 ARG VIRGL_SOURCE_BRANCH=master
 
 WORKDIR /src
@@ -85,6 +85,6 @@ RUN dnf install -y dnf-plugins-core \
      mesa-dri-drivers \
 && dnf clean all
 
-COPY --from=upstream /usr/bin/virt-launcher /usr/bin/upstream-virt-launcher
+RUN mv /usr/bin/virt-launcher /usr/bin/upstream-virt-launcher
 COPY --from=launcher-build /go/src/virt-launcher/virt-launcher /usr/bin/
 COPY --from=qemu-build /target/usr /usr
