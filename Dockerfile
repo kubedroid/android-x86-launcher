@@ -7,13 +7,6 @@
 # so that we can hardware-accelerate Android-x86
 FROM golang:1.11 AS launcher-build
 
-ARG QEMU_SOURCE_VERSION=3.0.0
-ARG VIRGL_SOURCE_BRANCH=master
-
-ARG LIBVIRT_PACKAGE_VERSION=4.9.0
-ARG QEMU_PACKAGE_VERSION=3.0.0
-ARG LIBUSB_PACKAGE_VERSION=1.0.22
-
 WORKDIR /go/src/virt-launcher
 
 COPY *.go .
@@ -43,6 +36,9 @@ RUN dnf install -y \
  patch \
  flex \
  bison
+
+ARG QEMU_SOURCE_VERSION=3.0.0
+ARG VIRGL_SOURCE_BRANCH=virglrenderer-0.7.0
 
 WORKDIR /src
 
@@ -75,13 +71,17 @@ RUN cd /src \
 
 FROM 9b33dab9e7d75ecbbbb4c599dd9c0e1ab9f6f126fe605989bc86d8a7e80de9fc
 
+ARG LIBVIRT_PACKAGE_VERSION=4.9.0
+ARG QEMU_PACKAGE_VERSION=3.0.0
+ARG LIBUSB_PACKAGE_VERSION=1.0.22
+
 RUN dnf install -y dnf-plugins-core \
 && dnf copr enable -y @virtmaint-sig/virt-preview \
 && dnf install -y \
      libvirt-daemon-kvm-$LIBVIRT_PACKAGE_VERSION \
      libvirt-client-$LIBVIRT_PACKAGE_VERSION \
      qemu-kvm-$QEMU_PACKAGE_VERSION \
-     libusbx-$LIBUSB_PACKGE_VERSION \
+     libusbx-$LIBUSB_PACKAGE_VERSION \
      mesa-dri-drivers \
 && dnf clean all
 
