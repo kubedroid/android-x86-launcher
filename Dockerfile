@@ -37,8 +37,8 @@ RUN dnf install -y \
  flex \
  bison
 
-ARG QEMU_SOURCE_VERSION=3.0.0
-ARG VIRGL_SOURCE_BRANCH=virglrenderer-0.7.0
+ARG QEMU_SOURCE_VERSION=3.1.0-rc2
+ARG VIRGL_SOURCE_BRANCH=master
 
 WORKDIR /src
 
