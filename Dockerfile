@@ -5,6 +5,26 @@
 #
 # The main goal is to get an up-to-date version of libvirt and qemu,
 # so that we can hardware-accelerate Android-x86
+FROM golang:1.11 AS upstream-build
+
+WORKDIR /usr/local/go/src/kubevirt.io
+
+RUN git config --global user.email "frederik.carlier@quamotion.mobi" \
+&& git config --global user.name "Frederik Carlier"
+
+RUN git clone -b release-0.10 https://github.com/kubevirt/kubevirt/ \
+&& cd kubevirt \
+&& git remote add rmohr https://github.com/rmohr/kubevirt \
+&& git fetch rmohr \
+&& git cherry-pick 3445986c3d74e91be3a635852abc4b105065e36e \
+&& git cherry-pick 10472f8a886d80e793d00453b4cbab36e45a4328
+
+RUN cd kubevirt/pkg/virt-launcher \
+&& mkdir -p /usr/local/bin/ \
+&& go build -o /usr/local/bin/virt-launcher \
+&& go install \
+&& ls -l /usr/local/bin
+
 FROM golang:1.11 AS launcher-build
 
 WORKDIR /go/src/virt-launcher
@@ -37,7 +57,7 @@ RUN dnf install -y \
  flex \
  bison
 
-ARG QEMU_SOURCE_VERSION=3.1.0-rc1
+ARG QEMU_SOURCE_VERSION=3.1.0-rc4
 ARG VIRGL_SOURCE_BRANCH=master
 
 WORKDIR /src
@@ -69,9 +89,9 @@ RUN cd /src \
 && DESTDIR=/target/ make install \
 && cd /src
 
-FROM 9b33dab9e7d75ecbbbb4c599dd9c0e1ab9f6f126fe605989bc86d8a7e80de9fc
+FROM docker.io/kubevirt/virt-launcher@sha256:8f8ccfb5281916ee77792f7d92182db11f4205d523fb826c6e21e73b09a5f3a7
 
-ARG LIBVIRT_PACKAGE_VERSION=4.9.0
+ARG LIBVIRT_PACKAGE_VERSION=4.10.0
 ARG QEMU_PACKAGE_VERSION=3.0.0
 ARG LIBUSB_PACKAGE_VERSION=1.0.22
 
@@ -80,11 +100,12 @@ RUN dnf install -y dnf-plugins-core \
 && dnf install -y \
      libvirt-daemon-kvm-$LIBVIRT_PACKAGE_VERSION \
      libvirt-client-$LIBVIRT_PACKAGE_VERSION \
-     qemu-kvm-$QEMU_PACKAGE_VERSION \
+#     qemu-kvm-$QEMU_PACKAGE_VERSION \
      libusbx-$LIBUSB_PACKAGE_VERSION \
      mesa-dri-drivers \
 && dnf clean all
 
-RUN mv /usr/bin/virt-launcher /usr/bin/upstream-virt-launcher
+COPY --from=upstream-build /usr/local/bin/virt-launcher /usr/bin/upstream-virt-launcher
+# mv /usr/bin/virt-launcher /usr/bin/upstream-virt-launcher
 COPY --from=launcher-build /go/src/virt-launcher/virt-launcher /usr/bin/
 COPY --from=qemu-build /target/usr /usr
