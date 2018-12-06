@@ -12,6 +12,10 @@ WORKDIR /usr/local/go/src/kubevirt.io
 RUN git config --global user.email "frederik.carlier@quamotion.mobi" \
 && git config --global user.name "Frederik Carlier"
 
+RUN apt-get update \
+&& apt-get install -y libvirt-dev \
+&& rm -rf /var/lib/apt/lists/*
+
 RUN git clone -b release-0.10 https://github.com/kubevirt/kubevirt/ \
 && cd kubevirt \
 && git remote add rmohr https://github.com/rmohr/kubevirt \
@@ -19,11 +23,9 @@ RUN git clone -b release-0.10 https://github.com/kubevirt/kubevirt/ \
 && git cherry-pick 3445986c3d74e91be3a635852abc4b105065e36e \
 && git cherry-pick 10472f8a886d80e793d00453b4cbab36e45a4328
 
-RUN cd kubevirt/pkg/virt-launcher \
-&& mkdir -p /usr/local/bin/ \
-&& go build -o /usr/local/bin/virt-launcher \
-&& go install \
-&& ls -l /usr/local/bin
+RUN cd kubevirt/cmd/virt-launcher \
+/&& mkdir -p /usr/local/bin/ \
+&& GOOS=linux GOARCH=amd64 go build
 
 FROM golang:1.11 AS launcher-build
 
@@ -55,7 +57,18 @@ RUN dnf install -y \
  spice-server-devel \
  patch \
  flex \
- bison
+ bison \
+#libvirt
+ libxslt \
+ gnutls-devel \
+ libnl3-devel \
+ libxml-devel \
+ libxml2-devel \
+ yajl-devel \
+ device-mapper-devel \
+ libpciaccess-devel \
+ gettext \
+ gettext-devel
 
 ARG QEMU_SOURCE_VERSION=3.1.0-rc4
 ARG VIRGL_SOURCE_BRANCH=master
@@ -89,6 +102,18 @@ RUN cd /src \
 && DESTDIR=/target/ make install \
 && cd /src
 
+# Compile libvirt
+RUN git clone -b v4.10.0 --depth=1 https://github.com/kubedroid/libvirt/
+
+RUN cd /src/libvirt \
+&& git status . \
+&& export CFLAGS="-Wno-unused-variable" \
+&& ./autogen.sh --prefix=/usr \
+&& make -j$(nproc) \
+&& make install \
+&& DESTDIR=/target/ make install \
+&& cd /src
+
 FROM docker.io/kubevirt/virt-launcher@sha256:8f8ccfb5281916ee77792f7d92182db11f4205d523fb826c6e21e73b09a5f3a7
 
 ARG LIBVIRT_PACKAGE_VERSION=4.10.0
@@ -105,7 +130,9 @@ RUN dnf install -y dnf-plugins-core \
      mesa-dri-drivers \
 && dnf clean all
 
-COPY --from=upstream-build /usr/local/bin/virt-launcher /usr/bin/upstream-virt-launcher
+COPY --from=upstream-build /usr/local/go/src/kubevirt.io/kubevirt/cmd/virt-launcher/virt-launcher /usr/bin/upstream-virt-launcher
 # mv /usr/bin/virt-launcher /usr/bin/upstream-virt-launcher
 COPY --from=launcher-build /go/src/virt-launcher/virt-launcher /usr/bin/
 COPY --from=qemu-build /target/usr /usr
+
+RUN chmod +x /usr/bin/upstream-virt-launcher
