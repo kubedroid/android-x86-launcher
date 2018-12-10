@@ -5,38 +5,7 @@
 #
 # The main goal is to get an up-to-date version of libvirt and qemu,
 # so that we can hardware-accelerate Android-x86
-FROM golang:1.11 AS upstream-build
-
-WORKDIR /usr/local/go/src/kubevirt.io
-
-RUN git config --global user.email "frederik.carlier@quamotion.mobi" \
-&& git config --global user.name "Frederik Carlier"
-
-RUN apt-get update \
-&& apt-get install -y libvirt-dev \
-&& rm -rf /var/lib/apt/lists/*
-
-RUN git clone -b release-0.10 https://github.com/kubevirt/kubevirt/ \
-&& cd kubevirt \
-&& git remote add rmohr https://github.com/rmohr/kubevirt \
-&& git fetch rmohr \
-&& git cherry-pick 3445986c3d74e91be3a635852abc4b105065e36e \
-&& git cherry-pick 10472f8a886d80e793d00453b4cbab36e45a4328
-
-RUN cd kubevirt/cmd/virt-launcher \
-/&& mkdir -p /usr/local/bin/ \
-&& GOOS=linux GOARCH=amd64 go build
-
-FROM golang:1.11 AS launcher-build
-
-WORKDIR /go/src/virt-launcher
-
-COPY *.go .
-RUN go build
-
-FROM docker.io/kubevirt/virt-launcher@sha256:8f8ccfb5281916ee77792f7d92182db11f4205d523fb826c6e21e73b09a5f3a7 AS upstream
-
-FROM docker.io/kubevirt/virt-launcher@sha256:8f8ccfb5281916ee77792f7d92182db11f4205d523fb826c6e21e73b09a5f3a7
+FROM docker.io/kubevirt/virt-launcher@sha256:ba612dd4b4373ca3cf4073188314955d5529a76ff0a7b08cc36c74847d1f3e42
 
 ARG LIBVIRT_PACKAGE_VERSION=4.10.0
 ARG QEMU_PACKAGE_VERSION=3.0.0
@@ -51,8 +20,3 @@ RUN dnf install -y dnf-plugins-core \
      libusbx-$LIBUSB_PACKAGE_VERSION \
      mesa-dri-drivers \
 && dnf clean all
-
-COPY --from=upstream-build /usr/local/go/src/kubevirt.io/kubevirt/cmd/virt-launcher/virt-launcher /usr/bin/upstream-virt-launcher
-COPY --from=launcher-build /go/src/virt-launcher/virt-launcher /usr/bin/
-
-RUN chmod +x /usr/bin/upstream-virt-launcher
